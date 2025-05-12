@@ -1,0 +1,96 @@
+# ==============================
+# End‑to‑End Test Playground
+# ==============================
+# Spin up Kafka (with ZooKeeper), DynamoDB‑Local, and your Bayesian engine
+# in one shot → `docker compose up --build`.
+#
+# Directory layout this file assumes:
+#   .
+#   ├─ docker-compose.yml    (this file)
+#   ├─ ab_bayesian_engine.py (engine code)
+#   ├─ experiments.yaml      (your DSL config)
+#   └─ requirements.txt      (pyyaml boto3 kafka-python …)
+#
+# The engine container mounts the *host* project directory so you can iterate
+# on code without rebuilding.  Use docker‑compose overrides for production.
+
+version: "3.8"
+
+services:
+  # ---------------------------------------------------------
+  # ZooKeeper – Kafka metadata store (single‑node for dev)
+  # ---------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  # ---------------------------------------------------------
+  # Kafka broker – PLAINTEXT only (dev)
+  # ---------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "kafka:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ---------------------------------------------------------
+  # DynamoDB Local – persists to named volume `dynamo-data`
+  # ---------------------------------------------------------
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /home/dynamodblocal"
+    ports:
+      - "8000:8000"
+    volumes:
+      - dynamo-data:/home/dynamodblocal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000"]
+      interval: 10s
+      retries: 5
+
+  # ---------------------------------------------------------
+  # Bayesian AB‑Engine – runs your Python file
+  # ---------------------------------------------------------
+  ab-engine:
+    image: python:3.11-slim
+    depends_on:
+      kafka:
+        condition: service_healthy
+      dynamodb:
+        condition: service_healthy
+    working_dir: /app
+    environment:
+      AWS_REGION: eu-central-1
+      KAFKA_PW: ""      # not used in PLAINTEXT mode; keep for parity
+    volumes:
+      - ./:/app:ro       # mount project read‑only into container
+    command: >-
+      sh -c "pip install --no-cache-dir -r requirements.txt && \
+             python ab_bayesian_engine.py --config experiments.yaml --progress-interval 15"
+    networks:
+      - abnet
+
+volumes:
+  dynamo-data:
+
+networks:
+  abnet:
+    driver: bridge
+
