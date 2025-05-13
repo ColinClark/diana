@@ -1,33 +1,35 @@
-
 # Bayesian A/B Engine Demo
 
-> Real‑time multi‑arm bandit experimentation with Python, Kafka, and DynamoDB  
-> _Last updated: 2025-05-12_
+> Real‑time multi‑arm bandit experimentation with Python, Kafka, and DynamoDB  
+> _Last updated: 2025-05-13_
 
 ---
 
 ## Table of Contents
-1. [What’s in this repo?](#whats-in-this-repo)
+1. [What's in this repo?](#whats-in-this-repo)
 2. [Architecture](#architecture)
 3. [Prerequisites](#prerequisites)
 4. [Quick‑start demo](#quick-start-demo)
 5. [Interpreting the output](#interpreting-the-output)
 6. [Switching sinks](#switching-sinks)
 7. [Cleaning up](#cleaning-up)
-8. [FAQ](#faq)
+8. [Package Structure](#package-structure)
+9. [FAQ](#faq)
 
 ---
 
-## What’s in this repo?
+## What's in this repo?
 
 | Path | Purpose |
 |------|---------|
-| `docker-compose.yml` | Spins up **Kafka + ZooKeeper**, **DynamoDB‑Local**, and the **Bayesian engine** container. |
+| `diana/` | Core package directory with modular implementation |
+| `docker-compose.yml` | Spins up **Kafka + ZooKeeper**, **DynamoDB‑Local**, and the **Bayesian engine** container. |
 | `experiments.yaml` | DSL describing experiments, infra, and the chosen output sink (`console`, `dynamodb`, or `csv`). |
-| `ab_bayesian_engine.py` | Real‑time event processor that calculates Beta‑Bernoulli posteriors. |
-| `traffic_generator.py` | Sends synthetic `ButtonDisplayed` / `ButtonClicked` events to Kafka at a controllable rate. |
-| `analyze_posteriors.py` | Reads the CSV sink (or DynamoDB export) and prints human‑friendly metrics. |
+| `ab_engine.py` | Entry point script for the Bayesian engine (for backward compatibility) |
+| `traffic.py` | Entry point script for the traffic generator (for backward compatibility) |
+| `analyze.py` | Entry point script for the posterior analyzer (for backward compatibility) |
 | `requirements.txt` | Python dependency pins. |
+| `setup.py` | Package installation script. |
 
 ---
 
@@ -56,8 +58,8 @@
 
 ## Prerequisites
 
-* **Docker + Docker Compose v2**  
-* **Python 3.11** (if you want to run scripts outside the container)  
+* **Docker + Docker Compose v2**  
+* **Python 3.11** (if you want to run scripts outside the container)  
 * Basic **GNU/Linux command‑line** tools
 
 ---
@@ -73,20 +75,20 @@ docker compose up --build -d   # first run may take a minute
 ```
 
 > The compose file auto‑installs Python deps inside the `ab-engine`
-> container and exposes Kafka at `localhost:9092`.
+> container and exposes Kafka at `localhost:9092`.
 
 ### 2. Generate traffic
 
 ```bash
 # 50 exposures per second for 2 minutes
-python traffic_generator.py        --config experiments.yaml        --eps 50        --duration 120        --prob "control=0.35,treatment=0.55"
+python traffic.py --config experiments.yaml --eps 50 --duration 120 --prob "control=0.35,treatment=0.55"
 ```
 
-You’ll see logs like:
+You'll see logs like:
 
 ```
-12:00:05 Published to web-events  (brokers=kafka:9092)  for 120 s
-12:00:25 Finished – sent 6 000 ButtonDisplayed events
+12:00:05 Published to web-events  (brokers=kafka:9092)  for 120 s
+12:00:25 Finished – sent 6 000 ButtonDisplayed events
 ```
 
 ### 3. Watch the engine
@@ -109,7 +111,7 @@ Posterior ► {'test_id': 'button-color-test', 'variant': 'control',
 If `output_sink: csv`:
 
 ```bash
-python analyze_posteriors.py posteriors_demo.csv
+python analyze.py posteriors_demo.csv
 ```
 
 Sample output:
@@ -125,7 +127,7 @@ Sample output:
 ### 5. Analyse results (DynamoDB sink)
 
 ```bash
-aws dynamodb scan     --table-name ab_posteriors     --endpoint-url http://localhost:8000     --projection-expression "test_id,variant,alpha,beta,timestamp"
+aws dynamodb scan --table-name ab_posteriors --endpoint-url http://localhost:8000 --projection-expression "test_id,variant,alpha,beta,timestamp"
 ```
 
 ---
@@ -136,13 +138,13 @@ aws dynamodb scan     --table-name ab_posteriors     --endpoint-url http://local
 |-------|---------|
 | `alpha`, `beta` | Parameters of the **Beta posterior** for conversion rate \(p\). |
 | Mean \(\hat p\) | `alpha / (alpha + beta)` – point estimate of CTR. |
-| 95 % CI | Beta quantiles (2.5 %, 97.5 %). Non‑overlapping → strong evidence. |
-| `exposures_inc` / `successes_inc` | Events since last tick (default 60 s). |
+| 95 % CI | Beta quantiles (2.5 %, 97.5 %). Non‑overlapping → strong evidence. |
+| `exposures_inc` / `successes_inc` | Events since last tick (default 60 s). |
 | `exposures_total` / `successes_total` | Cumulative counts. |
 | `success_rate_total` | Running CTR. |
 
-**Probability of superiority** from `analyze_posteriors.py` answers  
-“_How likely is Variant A better than Variant B right now?_”
+**Probability of superiority** from `analyze.py` answers  
+"_How likely is Variant A better than Variant B right now?_"
 
 ---
 
@@ -171,6 +173,54 @@ rm posteriors_demo.csv   # if you used the CSV sink
 
 ---
 
+## Package Structure
+
+The codebase has been refactored into a proper Python package with the following structure:
+
+```
+diana/
+  __init__.py            # Package metadata
+  engine/
+    __init__.py
+    bayesian.py          # Core engine logic
+    stores/
+      __init__.py
+      base.py            # Abstract store interface
+      console.py         # Console output implementation
+      csv.py             # CSV file implementation
+      dynamodb.py        # DynamoDB implementation
+  utils/
+    __init__.py
+    config.py            # Configuration utilities
+    kafka.py             # Kafka client wrapper
+  cli/
+    __init__.py
+    engine_cli.py        # Bayesian engine command-line interface
+    analyze_cli.py       # Results analyzer command-line interface
+    traffic_cli.py       # Traffic generator command-line interface
+```
+
+To install the package in development mode:
+
+```bash
+pip install -e .
+```
+
+This will make the following commands available:
+
+```bash
+# Run the Bayesian engine
+diana-engine --config experiments.yaml --run-for 3600 --progress-interval 60
+
+# Generate synthetic traffic
+diana-traffic --config experiments.yaml --eps 50 --duration 120
+
+# Analyze results
+diana-analyze posteriors_demo.csv
+```
+
+---
+
 ## FAQ
 
 <details>
@@ -184,12 +234,20 @@ initial allocation. The engine picks them up automatically on restart.
 <summary>Q: How do I deploy this to production?</summary>
 
 * Run Kafka and DynamoDB (or Aurora) on managed services.  
-* Build the engine into a tiny container image (~60 MiB).  
+* Build the engine into a tiny container image (~60 MiB).  
 * Use **Kubernetes deployments** with a single replica per test group or
 scale out with partition‑key affinity.  
 * Point `output_sink` to `dynamodb` and hook Grafana to the table.
 </details>
 
+<details>
+<summary>Q: How do I add a new storage backend?</summary>
+
+1. Create a new class in `diana/engine/stores/` that implements the `StoreManager` interface
+2. Add your new store type to the `StoreManager.create()` factory method
+3. Update the `experiments.yaml` file to use your new storage type
+</details>
+
 ---
 
-Happy testing 🎉
+Happy testing 🎉

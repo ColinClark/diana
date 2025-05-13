@@ -7,7 +7,7 @@
 # Directory layout this file assumes:
 #   .
 #   ├─ docker-compose.yml    (this file)
-#   ├─ ab_bayesian_engine.py (engine code)
+#   ├─ diana/               (package directory)
 #   ├─ experiments.yaml      (your DSL config)
 #   └─ requirements.txt      (pyyaml boto3 kafka-python …)
 #
@@ -83,7 +83,8 @@ services:
       - ./:/app:ro       # mount project read‑only into container
     command: >-
       sh -c "pip install --no-cache-dir -r requirements.txt && \
-             python ab_bayesian_engine.py --config experiments.yaml --progress-interval 15"
+             pip install -e . && \
+             diana-engine --config experiments.yaml --progress-interval 15"
     networks:
       - abnet
 
@@ -93,4 +94,3 @@ volumes:
 networks:
   abnet:
     driver: bridge
-
