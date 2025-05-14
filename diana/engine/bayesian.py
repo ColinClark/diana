@@ -77,19 +77,34 @@ class BayesianEngine:
         
         Args:
             test: Test configuration
-            ts: Event timestamp
+            ts: Event timestamp (as datetime object with UTC timezone)
             
         Returns:
             bool: True if within test window, False otherwise
         """
-        # For now, just return True (window checks disabled)
-        # In production, uncomment this logic to enforce time windows:
-        # 
-        # start = datetime.fromisoformat(test["start_time"].replace("Z","+00:00"))
-        # end = datetime.fromisoformat(
-        #   test.get("end_time","9999-01-01T00:00:00+00:00").replace("Z","+00:00"))
-        # return start <= ts <= end
-        return True
+        # Parse start time from ISO format
+        if "start_time" not in test:
+            return False  # If no start time defined, the test is not active
+            
+        start_time_str = test["start_time"]
+        # Handle 'Z' timezone designator by replacing with '+00:00' for ISO format compatibility
+        if start_time_str.endswith('Z'):
+            start_time_str = start_time_str[:-1] + '+00:00'
+        start = datetime.fromisoformat(start_time_str)
+            
+        # Parse end time if available, otherwise use far future date
+        end_time_str = test.get("end_time")
+        if not end_time_str:
+            # Use far future date if end time not specified
+            end = datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+        else:
+            # Handle 'Z' timezone designator
+            if end_time_str.endswith('Z'):
+                end_time_str = end_time_str[:-1] + '+00:00'
+            end = datetime.fromisoformat(end_time_str)
+            
+        # Check if timestamp is within window
+        return start <= ts <= end
     
     def run(self) -> None:
         """
