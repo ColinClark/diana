@@ -1,7 +1,7 @@
 # Bayesian A/B Engine Demo
 
 > Real‑time multi‑arm bandit experimentation with Python, Kafka, and DynamoDB  
-> _Last updated: 2025-05-13_
+> _Last updated: 2025-05-14_
 
 ---
 
@@ -81,7 +81,7 @@ docker compose up --build -d   # first run may take a minute
 
 ```bash
 # 50 exposures per second for 2 minutes
-python traffic.py --config experiments.yaml --eps 50 --duration 120 --prob "control=0.35,treatment=0.55"
+diana-traffic --config experiments.yaml --eps 50 --duration 120 --prob "control=0.35,treatment=0.55"
 ```
 
 You'll see logs like:
@@ -111,7 +111,7 @@ Posterior ► {'test_id': 'button-color-test', 'variant': 'control',
 If `output_sink: csv`:
 
 ```bash
-python analyze.py posteriors_demo.csv
+diana-analyze posteriors_demo.csv
 ```
 
 Sample output:
@@ -143,7 +143,7 @@ aws dynamodb scan --table-name ab_posteriors --endpoint-url http://localhost:800
 | `exposures_total` / `successes_total` | Cumulative counts. |
 | `success_rate_total` | Running CTR. |
 
-**Probability of superiority** from `analyze.py` answers  
+**Probability of superiority** from `diana-analyze` answers  
 "_How likely is Variant A better than Variant B right now?_"
 
 ---
@@ -206,17 +206,29 @@ To install the package in development mode:
 pip install -e .
 ```
 
-This will make the following commands available:
+This will make the following Diana CLI commands available:
 
 ```bash
 # Run the Bayesian engine
 diana-engine --config experiments.yaml --run-for 3600 --progress-interval 60
 
 # Generate synthetic traffic
-diana-traffic --config experiments.yaml --eps 50 --duration 120
+diana-traffic --config experiments.yaml --eps 50 --duration 120 --prob "control=0.35,treatment=0.55"
 
 # Analyze results
 diana-analyze posteriors_demo.csv
+
+# Inject test events from a file (using shell script)
+./inject_test_events.sh
+```
+
+For backward compatibility, the following legacy commands are still available:
+
+```bash
+# Legacy commands (still functional)
+python ab_engine.py --config experiments.yaml
+python traffic.py --config experiments.yaml --eps 50 --duration 120
+python analyze.py posteriors_demo.csv
 ```
 
 ---
