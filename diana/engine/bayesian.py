@@ -86,22 +86,33 @@ class BayesianEngine:
         if "start_time" not in test:
             return False  # If no start time defined, the test is not active
             
-        start_time_str = test["start_time"]
-        # Handle 'Z' timezone designator by replacing with '+00:00' for ISO format compatibility
-        if start_time_str.endswith('Z'):
-            start_time_str = start_time_str[:-1] + '+00:00'
-        start = datetime.fromisoformat(start_time_str)
+        start_time = test["start_time"]
+        
+        # If start_time is already a datetime object, use it directly
+        if isinstance(start_time, datetime):
+            start = start_time
+        else:
+            # Handle string format with 'Z' timezone designator
+            start_time_str = str(start_time)
+            if start_time_str.endswith('Z'):
+                start_time_str = start_time_str[:-1] + '+00:00'
+            start = datetime.fromisoformat(start_time_str)
             
         # Parse end time if available, otherwise use far future date
-        end_time_str = test.get("end_time")
-        if not end_time_str:
+        end_time = test.get("end_time")
+        if not end_time:
             # Use far future date if end time not specified
             end = datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
         else:
-            # Handle 'Z' timezone designator
-            if end_time_str.endswith('Z'):
-                end_time_str = end_time_str[:-1] + '+00:00'
-            end = datetime.fromisoformat(end_time_str)
+            # If end_time is already a datetime object, use it directly
+            if isinstance(end_time, datetime):
+                end = end_time
+            else:
+                # Handle string format with 'Z' timezone designator
+                end_time_str = str(end_time)
+                if end_time_str.endswith('Z'):
+                    end_time_str = end_time_str[:-1] + '+00:00'
+                end = datetime.fromisoformat(end_time_str)
             
         # Check if timestamp is within window
         return start <= ts <= end
