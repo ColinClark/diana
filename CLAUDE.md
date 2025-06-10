@@ -15,13 +15,13 @@ Diana is a Bayesian A/B testing engine demo that implements real-time multi-arm 
 docker compose up --build -d
 
 # Generate synthetic traffic (50 events per second for 2 minutes)
-python traffic_generator.py --config experiments.yaml --eps 50 --duration 120 --prob "control=0.35,treatment=0.55"
+diana-traffic --config experiments.yaml --eps 50 --duration 120 --prob "control=0.35,treatment=0.55"
 
 # Watch the engine logs in real-time
 docker compose logs -f ab-engine
 
 # Analyze results (when using CSV sink)
-python analyze_posteriors.py posteriors_demo.csv
+diana-analyze posteriors_demo.csv
 
 # View results in DynamoDB (when using DynamoDB sink)
 aws dynamodb scan --table-name ab_posteriors --endpoint-url http://localhost:8000 --projection-expression "test_id,variant,alpha,beta,timestamp"
@@ -34,7 +34,7 @@ docker compose down -v
 
 ```bash
 # Run the Bayesian engine directly with custom parameters
-python ab_bayesian_engine.py --config experiments.yaml --run-for 3600 --progress-interval 60
+diana-engine --config experiments.yaml --run-for 3600 --progress-interval 60
 
 # Inject test events from a file
 ./inject_test_events.sh
@@ -44,16 +44,16 @@ python ab_bayesian_engine.py --config experiments.yaml --run-for 3600 --progress
 
 ### Core Components
 
-1. **ab_bayesian_engine.py**: Real-time event processor that calculates Beta-Bernoulli posteriors.
+1. **diana-engine**: Real-time event processor that calculates Beta-Bernoulli posteriors.
    - Consumes events from Kafka
    - Updates Beta distribution parameters (alpha, beta)
    - Periodically emits posterior snapshots to configurable sinks
 
-2. **traffic_generator.py**: Sends synthetic events to Kafka at a controllable rate.
+2. **diana-traffic**: Sends synthetic events to Kafka at a controllable rate.
    - Generates ButtonDisplayed and ButtonClicked events
    - Configurable events-per-second and success probabilities
 
-3. **analyze_posteriors.py**: Reads posteriors data and prints metrics.
+3. **diana-analyze**: Reads posteriors data and prints metrics.
    - Calculates posterior means and credible intervals
    - Computes probability of superiority between variants
 
@@ -90,9 +90,12 @@ The system is configured via **experiments.yaml**, which defines:
 
 - `docker-compose.yml`: Defines services (Kafka, ZooKeeper, DynamoDB-Local, Bayesian engine)
 - `experiments.yaml`: Configuration for the Bayesian engine
-- `ab_bayesian_engine.py`: Main engine implementation
-- `traffic_generator.py`: Synthetic traffic generator
-- `analyze_posteriors.py`: Utility for analyzing results
+- `diana/`: Python package containing all core functionality
+  - `diana/cli/engine_cli.py`: Main engine implementation (diana-engine command)
+  - `diana/cli/traffic_cli.py`: Synthetic traffic generator (diana-traffic command)
+  - `diana/cli/analyze_cli.py`: Utility for analyzing results (diana-analyze command)
+  - `diana/engine/bayesian.py`: Core Bayesian engine logic
+  - `diana/engine/stores/`: Output sink implementations (console, CSV, DynamoDB)
 - `inject_test_events.sh`: Helper script to inject test events
 
 ## Dependencies

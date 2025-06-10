@@ -25,9 +25,6 @@
 | `diana/` | Core package directory with modular implementation |
 | `docker-compose.yml` | Spins up **Kafka + ZooKeeper**, **DynamoDB‑Local**, and the **Bayesian engine** container. |
 | `experiments.yaml` | DSL describing experiments, infra, and the chosen output sink (`console`, `dynamodb`, or `csv`). |
-| `ab_engine.py` | Entry point script for the Bayesian engine (for backward compatibility) |
-| `traffic.py` | Entry point script for the traffic generator (for backward compatibility) |
-| `analyze.py` | Entry point script for the posterior analyzer (for backward compatibility) |
 | `requirements.txt` | Python dependency pins. |
 | `setup.py` | Package installation script. |
 
@@ -222,14 +219,6 @@ diana-analyze posteriors_demo.csv
 ./inject_test_events.sh
 ```
 
-For backward compatibility, the following legacy commands are still available:
-
-```bash
-# Legacy commands (still functional)
-python ab_engine.py --config experiments.yaml
-python traffic.py --config experiments.yaml --eps 50 --duration 120
-python analyze.py posteriors_demo.csv
-```
 
 ---
 
