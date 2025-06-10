@@ -75,3 +75,11 @@ timestamp,test_id,variant,alpha,beta
 2025-05-12T11:48:04+00:00,button-color-test,treatment,6055,4907
 2025-05-12T12:04:09+00:00,button-color-test,control,3648,7094
 2025-05-12T12:04:09+00:00,button-color-test,treatment,6055,4907
+2025-06-06T11:57:35+00:00,button-color-test,control,38,105
+2025-06-06T11:57:35+00:00,button-color-test,treatment,102,60
+2025-06-06T11:57:45+00:00,button-color-test,control,38,105
+2025-06-06T11:57:45+00:00,button-color-test,treatment,102,60
+2025-06-06T11:57:55+00:00,button-color-test,control,38,105
+2025-06-06T11:57:55+00:00,button-color-test,treatment,102,60
+2025-06-06T11:58:05+00:00,button-color-test,control,38,105
+2025-06-06T11:58:05+00:00,button-color-test,treatment,102,60
