@@ -123,8 +123,9 @@ class BayesianEngine:
         
         Processes events until run_secs has elapsed.
         """
-        logging.info("Engine start: run_secs=%s tick=%s",
-                    self.run_secs, self.tick)
+        logging.info("Engine start: run_secs=%s tick=%s tests=%s",
+                    self.run_secs, self.tick, list(self.tests.keys()))
+        logging.info("Engine subscribed to topics: %s", self.kafka.topics)
         
         while (time.time() - self.start_time) < self.run_secs:
             # Poll for messages
@@ -133,10 +134,13 @@ class BayesianEngine:
             if msg is None:
                 self._maybe_tick()
                 continue
+            
+            logging.debug("Received message from topic: %s", msg.topic())
                 
             # Process message
             try:
                 event = json.loads(msg.value())
+                logging.debug("Processing event: %s", event.get('event_name', 'unknown'))
                 self._process(event)
                 self.kafka.commit(asynchronous=True)
             except Exception as e:
@@ -162,6 +166,7 @@ class BayesianEngine:
             # Get test ID and skip if not in catalog
             tid = ev.get("test_id")
             if tid not in self.tests:
+                logging.debug("Skipping event for unknown test_id: %s", tid)
                 self.metrics["events_skipped"] += 1
                 return
                 
@@ -170,6 +175,7 @@ class BayesianEngine:
             # Parse timestamp and check window
             ts = datetime.fromtimestamp(ev["timestamp"]/1000, tz=timezone.utc)
             if not self._in_window(test, ts):
+                logging.debug("Skipping event outside time window: %s (event: %s)", ts, ev.get('event_name'))
                 self.metrics["events_skipped"] += 1
                 return
             
@@ -185,11 +191,16 @@ class BayesianEngine:
                     # Update beta only on display events
                     self.beta[tid][var] = (
                         1 + self.exposures[tid][var] - self.successes[tid][var])
+                    logging.debug("Processed %s for %s/%s: exposures=%d", 
+                                e_name, tid, var, self.exposures[tid][var])
                 elif e_name.endswith("Clicked"):
                     self.successes[tid][var] += 1
                     self.inc_suc[tid][var] += 1
                     self.alpha[tid][var] += 1
+                    logging.debug("Processed %s for %s/%s: successes=%d alpha=%d", 
+                                e_name, tid, var, self.successes[tid][var], self.alpha[tid][var])
                 else:
+                    logging.debug("Skipping unknown event type: %s", e_name)
                     self.metrics["events_skipped"] += 1
                     return
                     
@@ -211,6 +222,9 @@ class BayesianEngine:
             return
             
         self.last_tick = now
+        
+        logging.info("Tick update: events_processed=%d events_skipped=%d", 
+                    self.metrics["events_processed"], self.metrics["events_skipped"])
         
         with self._lock:
             for tid, variants in self.exposures.items():
@@ -236,6 +250,7 @@ class BayesianEngine:
                     # Store posterior update
                     try:
                         self.store.put(tid, v, alpha, beta, ts)
+                        logging.debug("Stored posterior for %s/%s: α=%d β=%d", tid, v, alpha, beta)
                     except Exception as e:
                         logging.error(f"Error writing to store: {e}")
                         self.metrics["store_errors"] += 1

@@ -84,7 +84,7 @@ services:
     command: >-
       sh -c "pip install --no-cache-dir -r requirements.txt && \
              pip install -e . && \
-             diana-engine --config experiments.yaml --progress-interval 15"
+             diana-engine --config experiments.yaml --progress-interval 15 --log-level DEBUG"
     networks:
       - abnet
 

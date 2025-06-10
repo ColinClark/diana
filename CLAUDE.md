@@ -23,6 +23,9 @@ docker compose logs -f ab-engine
 # Analyze results (when using CSV sink)
 diana-analyze posteriors_demo.csv
 
+# Monitor real-time Kafka messages from the engine
+diana-monitor --config experiments.yaml
+
 # View results in DynamoDB (when using DynamoDB sink)
 aws dynamodb scan --table-name ab_posteriors --endpoint-url http://localhost:8000 --projection-expression "test_id,variant,alpha,beta,timestamp"
 
@@ -56,6 +59,11 @@ diana-engine --config experiments.yaml --run-for 3600 --progress-interval 60
 3. **diana-analyze**: Reads posteriors data and prints metrics.
    - Calculates posterior means and credible intervals
    - Computes probability of superiority between variants
+
+4. **diana-monitor**: Real-time Kafka topic monitor for engine output.
+   - Shows live posterior updates and metrics
+   - Displays health information and processing stats
+   - Formatted output for easy monitoring
 
 ### Data Flow
 

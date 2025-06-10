@@ -23,6 +23,7 @@ setup(
             "diana-engine=diana.cli.engine_cli:main",
             "diana-analyze=diana.cli.analyze_cli:main",
             "diana-traffic=diana.cli.traffic_cli:main",
+            "diana-monitor=diana.cli.monitor_cli:main",
         ],
     },
     python_requires=">=3.9",
