@@ -18,12 +18,16 @@ setup(
         "pandas>=1.5.0",
         "scipy>=1.10.0",
     ],
+    extras_require={
+        "plots": ["matplotlib>=3.5.0"],
+    },
     entry_points={
         "console_scripts": [
             "diana-engine=diana.cli.engine_cli:main",
             "diana-analyze=diana.cli.analyze_cli:main",
             "diana-traffic=diana.cli.traffic_cli:main",
             "diana-monitor=diana.cli.monitor_cli:main",
+            "diana-route=diana.cli.route_cli:main",
         ],
     },
     python_requires=">=3.9",

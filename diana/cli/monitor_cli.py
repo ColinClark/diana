@@ -79,8 +79,8 @@ class KafkaMonitor:
             
             if topic.endswith('posteriors') or 'posterior' in topic:
                 # Posterior snapshot message
-                return (f"[{timestamp}] 📊 POSTERIOR | {topic} | "
-                       f"test={value.get('test_id', 'unknown')} "
+                test_id = value.get('test_id', 'unknown')
+                return (f"[{timestamp}] [POSTERIOR] [{test_id}] | {topic} | "
                        f"variant={value.get('variant', 'unknown')} "
                        f"α={value.get('alpha', 0)} β={value.get('beta', 0)}")
             
@@ -88,14 +88,14 @@ class KafkaMonitor:
                 # Metrics message
                 if 'events_processed' in value:
                     # Health metrics
-                    return (f"[{timestamp}] ❤️  HEALTH | {topic} | "
+                    return (f"[{timestamp}] [HEALTH] | {topic} | "
                            f"processed={value.get('events_processed', 0)} "
                            f"skipped={value.get('events_skipped', 0)} "
                            f"errors={value.get('error_count', 0)}")
                 else:
                     # Variant metrics
-                    return (f"[{timestamp}] 📈 METRICS | {topic} | "
-                           f"test={value.get('test_id', 'unknown')} "
+                    test_id = value.get('test_id', 'unknown')
+                    return (f"[{timestamp}] [METRICS] [{test_id}] | {topic} | "
                            f"variant={value.get('variant', 'unknown')} "
                            f"exp_inc={value.get('exposures_inc', 0)} "
                            f"suc_inc={value.get('successes_inc', 0)} "
@@ -103,20 +103,20 @@ class KafkaMonitor:
             
             elif topic.endswith('decisions') or 'decision' in topic:
                 # Decision message
-                return (f"[{timestamp}] 🎯 DECISION | {topic} | "
-                       f"test={value.get('test_id', 'unknown')} "
+                test_id = value.get('test_id', 'unknown')
+                return (f"[{timestamp}] [DECISION] [{test_id}] | {topic} | "
                        f"variant={value.get('variant', 'unknown')} "
                        f"confidence={value.get('confidence', 0):.3f}")
             
             else:
                 # Generic message
-                return (f"[{timestamp}] 📨 MESSAGE | {topic} | "
+                return (f"[{timestamp}] [MESSAGE] | {topic} | "
                        f"{json.dumps(value, indent=None, separators=(',', ':'))}")
         
         except Exception as e:
             # Fallback for non-JSON messages
             timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-            return (f"[{timestamp}] ⚠️  RAW | {msg.topic()} | "
+            return (f"[{timestamp}] [RAW] | {msg.topic()} | "
                    f"Error parsing: {e} | Raw: {msg.value()}")
     
     def run(self) -> None:
@@ -125,7 +125,7 @@ class KafkaMonitor:
         
         Continuously polls for messages and displays them until stopped.
         """
-        logging.info("🔍 Starting Kafka monitor for topics: %s", self.topics)
+        logging.info("[MONITOR] Starting Kafka monitor for topics: %s", self.topics)
         logging.info("Press Ctrl+C to stop monitoring...")
         print()  # Add blank line for readability
         
@@ -156,9 +156,9 @@ class KafkaMonitor:
             logging.info("Monitor interrupted by user")
         
         finally:
-            logging.info("📊 Total messages monitored: %d", message_count)
+            logging.info("[MONITOR] Total messages monitored: %d", message_count)
             self.consumer.close()
-            logging.info("🛑 Kafka monitor stopped")
+            logging.info("[MONITOR] Kafka monitor stopped")
 
 
 def main():

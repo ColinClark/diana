@@ -23,8 +23,30 @@ docker compose logs -f ab-engine
 # Analyze results (when using CSV sink)
 diana-analyze posteriors_demo.csv
 
+# Enhanced analysis with plots and summary stats
+diana-analyze posteriors_demo.csv --summary --plot
+
+# Export detailed analysis to file
+diana-analyze posteriors_demo.csv --export analysis_results.csv
+
 # Monitor real-time Kafka messages from the engine
 diana-monitor --config experiments.yaml
+
+# Start dynamic traffic router with Thompson Sampling (default, with traffic simulation)
+# Now uses separate threads: Kafka consumer + routing decisions + traffic simulation
+diana-route --config experiments.yaml
+
+# Display real-time routing results (press ESC to stop)
+diana-route --config experiments.yaml --display
+
+# Custom routing interval with live display
+diana-route --config experiments.yaml --routing-interval 2.0 --display
+
+# Epsilon-Greedy with custom exploration rate
+diana-route --config experiments.yaml --algorithm epsilon_greedy --exploration-rate 0.2
+
+# Metrics-only mode (no traffic simulation)
+diana-route --config experiments.yaml --no-simulate-traffic
 
 # View results in DynamoDB (when using DynamoDB sink)
 aws dynamodb scan --table-name ab_posteriors --endpoint-url http://localhost:8000 --projection-expression "test_id,variant,alpha,beta,timestamp"
@@ -56,14 +78,30 @@ diana-engine --config experiments.yaml --run-for 3600 --progress-interval 60
    - Generates ButtonDisplayed and ButtonClicked events
    - Configurable events-per-second and success probabilities
 
-3. **diana-analyze**: Reads posteriors data and prints metrics.
+3. **diana-analyze**: Comprehensive analysis of posterior data and test results.
    - Calculates posterior means and credible intervals
    - Computes probability of superiority between variants
+   - Generates visualization plots (conversion rate evolution, posterior distributions)
+   - Provides summary statistics and data quality metrics
+   - Exports detailed analysis to CSV or JSON formats
 
 4. **diana-monitor**: Real-time Kafka topic monitor for engine output.
    - Shows live posterior updates and metrics
    - Displays health information and processing stats
    - Formatted output for easy monitoring
+
+5. **diana-route**: Dynamic traffic routing with built-in traffic simulation.
+   - **Architecture**: Three separate threads for optimal performance:
+     * Kafka Consumer Thread: Continuously reads metrics and updates shared state
+     * Routing Decision Thread: Calculates optimal allocations using current metrics
+     * Traffic Simulation Thread: Simulates routing requests using current allocations
+   - Uses Thompson Sampling (default) or Epsilon-Greedy algorithms
+   - Automatically adjusts traffic allocation based on real-time metrics
+   - Simulates routing requests (configurable interval, default: 5 seconds)
+   - Real-time display of routing decisions with performance metrics
+   - Interactive mode with ESC key to stop (--display flag)
+   - Thread-safe data structures ensure consistent metrics access
+   - Publishes routing decisions and simulated requests to Kafka
 
 ### Data Flow
 
@@ -77,13 +115,20 @@ diana-engine --config experiments.yaml --run-for 3600 --progress-interval 60
      ┌───────────────┐   Kafka topic   ┌────────────────┐
      │  ab_engine    │ ──────────────▶ │ posteriors_out │
      │ (Python)      │                 │ metrics_out    │
-     └─────▲─────────┘                 └────────────────┘
-           │
-           │ sink = console | csv | dynamodb
-           ▼
-   ┌──────────────┐
-   │  CSV file    │  or  DynamoDB table
-   └──────────────┘
+     └─────▲─────────┘                 └────────┬───────┘
+           │                                    │
+           │ sink = console | csv | dynamodb    │ real-time metrics
+           ▼                                    ▼
+   ┌──────────────┐                    ┌───────────────┐
+   │  CSV file    │  or  DynamoDB      │ diana-route   │
+   │              │      table         │ (Thompson/ε)  │
+   └──────────────┘                    └───────┬───────┘
+                                               │ routing decisions
+                                               ▼
+                                       ┌───────────────┐
+                                       │ Load Balancer │
+                                       │ Integration   │
+                                       └───────────────┘
 ```
 
 ### Configuration

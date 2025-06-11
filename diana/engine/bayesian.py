@@ -166,7 +166,7 @@ class BayesianEngine:
             # Get test ID and skip if not in catalog
             tid = ev.get("test_id")
             if tid not in self.tests:
-                logging.debug("Skipping event for unknown test_id: %s", tid)
+                logging.debug("Skipping event for unknown test_id: %s (available: %s)", tid, list(self.tests.keys()))
                 self.metrics["events_skipped"] += 1
                 return
                 
@@ -175,7 +175,7 @@ class BayesianEngine:
             # Parse timestamp and check window
             ts = datetime.fromtimestamp(ev["timestamp"]/1000, tz=timezone.utc)
             if not self._in_window(test, ts):
-                logging.debug("Skipping event outside time window: %s (event: %s)", ts, ev.get('event_name'))
+                logging.debug("[%s] Skipping event outside time window: %s (event: %s)", tid, ts, ev.get('event_name'))
                 self.metrics["events_skipped"] += 1
                 return
             
@@ -191,14 +191,14 @@ class BayesianEngine:
                     # Update beta only on display events
                     self.beta[tid][var] = (
                         1 + self.exposures[tid][var] - self.successes[tid][var])
-                    logging.debug("Processed %s for %s/%s: exposures=%d", 
-                                e_name, tid, var, self.exposures[tid][var])
+                    logging.debug("[%s] Processed %s for variant %s: exposures=%d", 
+                                tid, e_name, var, self.exposures[tid][var])
                 elif e_name.endswith("Clicked"):
                     self.successes[tid][var] += 1
                     self.inc_suc[tid][var] += 1
                     self.alpha[tid][var] += 1
-                    logging.debug("Processed %s for %s/%s: successes=%d alpha=%d", 
-                                e_name, tid, var, self.successes[tid][var], self.alpha[tid][var])
+                    logging.debug("[%s] Processed %s for variant %s: successes=%d alpha=%d", 
+                                tid, e_name, var, self.successes[tid][var], self.alpha[tid][var])
                 else:
                     logging.debug("Skipping unknown event type: %s", e_name)
                     self.metrics["events_skipped"] += 1
@@ -223,8 +223,8 @@ class BayesianEngine:
             
         self.last_tick = now
         
-        logging.info("Tick update: events_processed=%d events_skipped=%d", 
-                    self.metrics["events_processed"], self.metrics["events_skipped"])
+        logging.info("Tick update: events_processed=%d events_skipped=%d active_tests=%s", 
+                    self.metrics["events_processed"], self.metrics["events_skipped"], list(self.exposures.keys()))
         
         with self._lock:
             for tid, variants in self.exposures.items():
@@ -250,7 +250,7 @@ class BayesianEngine:
                     # Store posterior update
                     try:
                         self.store.put(tid, v, alpha, beta, ts)
-                        logging.debug("Stored posterior for %s/%s: α=%d β=%d", tid, v, alpha, beta)
+                        logging.debug("[%s] Stored posterior for variant %s: α=%d β=%d", tid, v, alpha, beta)
                     except Exception as e:
                         logging.error(f"Error writing to store: {e}")
                         self.metrics["store_errors"] += 1

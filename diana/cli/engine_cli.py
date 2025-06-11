@@ -51,6 +51,11 @@ def main():
         consumer_group="ab_engine"
     )
     
+    # Log loaded test configuration
+    bayesian_tests = [t["id"] for t in cfg.get("tests", []) 
+                     if t.get("algorithm", {}).get("type") == "bayesian"]
+    logging.info("Diana engine starting with tests: %s", bayesian_tests)
+    
     # Create and run engine
     engine = BayesianEngine(
         store=store,
